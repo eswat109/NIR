@@ -41,12 +41,13 @@ AD_size = point_size  #
 
 def makeFieldByPoints(img, pts, intns = None):
     blank_image = np.zeros(img.shape, np.uint8)
+    maxIntns = 255
     for i, pt in enumerate(pts):
         color = 1
         if intens_on:
             if intns is not None:
                 color = intns[i]
-        blank_image = cv.circle(blank_image, tuple(pt), AD_size, color, -1)
+        blank_image = cv.circle(blank_image, tuple(pt), AD_size, color * maxIntns, -1)
     if not blur_on:
         return blank_image
     if g_blur_on:
@@ -56,6 +57,10 @@ def makeFieldByPoints(img, pts, intns = None):
 def makeImgFromField(field):
     maxIntns = 255
     return np.multiply(maxIntns, field)
+
+def makeFieldFromIg(field):
+    maxIntns = 255
+    return np.divide(field, maxIntns)
 
 def getMasksFromFrames(img1, img2):
     ''' MAKE SPECULAR MASK FROM TWO CONSISTENT FRAMES '''
@@ -197,6 +202,12 @@ def combineFrameAndMask(img, mask):
     color_mask = cv.merge([r, z, b])
     res = cv.addWeighted(img, 1, color_mask, 0.7, 0.0)
     return res
+
+def getMaskedImage(img1, img2):
+    ED_mask, AD_mask, SPEC_mask = getMasksFromFrames(img1, img2)
+    img_mask = combineFrameAndMask(img2_2, SPEC_mask)
+    return img_mask
+
 
 '''
 def makeFieldAD(img, pts, intns):
