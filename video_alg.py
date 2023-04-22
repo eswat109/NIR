@@ -5,10 +5,10 @@ from algo import *
 
 MASK_ONLY = False
 
-def getFrameToWrite(frame, mask):
+def getFrameToWrite(frame, mask, slvr):
     res = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
     if not MASK_ONLY:
-        res = combineFrameAndMask(frame, mask)
+        res = slvr.combineFrameAndMask(frame, mask)
     return res
 
 def main():
@@ -20,14 +20,16 @@ def main():
     vid_name = 'Cabinet2_Full'
     vid_format = '.avi'
 
+    slvr = Solver()
+
     cap = cv.VideoCapture(vid_dir + vid_name + vid_format)
     fourcc = cv.VideoWriter_fourcc(*'XVID')
     fps = cap.get(cv.CAP_PROP_FPS)
     frame_w = cap.get(cv.CAP_PROP_FRAME_WIDTH)
     frame_h = cap.get(cv.CAP_PROP_FRAME_HEIGHT)
     new_name = vid_dir + 'masked/' + vid_name + '_masked_' + str(frame_gap) + '__' + \
-               str(SIFT_peak_threshold) + '_' + str(SIFT_edge_threshold) + '_' + \
-               str(samson_err) + '_' + str(ratio_test) + '__' + str(Gaussian_deviation) + '_' + str(point_size) + '.avi'
+               str(slvr.SIFT_peak_threshold) + '_' + str(slvr.SIFT_edge_threshold) + '_' + \
+               str(slvr.samson_err) + '_' + str(slvr.ratio_test) + '__' + str(slvr.Gaussian_deviation) + '_' + str(slvr.point_size) + '.avi'
     # out = cv.VideoWriter(new_name, fourcc, fps, (frame_w, frame_h))
     out = cv.VideoWriter(new_name, fourcc, fps, (int(frame_w), int(frame_h)))
     frame = prev_frame = None
@@ -48,7 +50,7 @@ def main():
             if mask is None:
                 out.write(frame)
             else:
-                masked_frame = getFrameToWrite(frame, mask)
+                masked_frame = getFrameToWrite(frame, mask, slvr)
                 out.write(masked_frame)
             continue
         frame_i = -1
@@ -57,17 +59,17 @@ def main():
         gray_prev_frame = cv.cvtColor(prev_frame, cv.COLOR_BGR2GRAY)
 
         '''
-        mask, _1, _2 = getMasksFromFrames(gray_prev_frame, gray_frame)
+        mask, _1, _2 = slvr.getMasksFromFrames(gray_prev_frame, gray_frame)
         '''
         try:
-            mask, _1, _2 = getMasksFromFrames(gray_prev_frame, gray_frame)
+            mask, _1, _2 = slvr.getMasksFromFrames(gray_prev_frame, gray_frame)
         except:
             mask = None
             out.write(frame)
             prev_frame = frame
             continue
 
-        masked_frame = getFrameToWrite(frame, mask)
+        masked_frame = getFrameToWrite(frame, mask, slvr)
         out.write(masked_frame)
 
         prev_frame = frame

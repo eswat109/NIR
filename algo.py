@@ -3,208 +3,200 @@ from numpy.linalg import norm
 import cv2 as cv
 from matplotlib import pyplot as plt
 
+class Solver:
 
-'''def drawFieldPoints(img, pts):
-    color = (0, 255, 0)
-    img = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
-    for i, pt in enumerate(pts):
-        img = cv.circle(img, tuple(pt), 5, color, -1)
-    return img
+    '''ARTICLE PARAMETERS'''
+    SIFT_peak_threshold = 0.05 #0.08
+    SIFT_edge_threshold = 10
 
-def drawFieldKPoints(img, kpts):
-    color = (0, 255, 0)
-    img = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
-    for i, pt in enumerate(kpts):
-        img = cv.circle(img, tuple(pt.pt), pt.size, color, -1)
-    return img'''
+    SIFT_feature_elimination_threshold = 5
+    SIFT_matching_threshold = 2
 
-'''ARTICLE PARAMETERS'''
-SIFT_peak_threshold = 0.05 #0.08
-SIFT_edge_threshold = 10
-SIFT_feature_elimination_threshold = 5
-SIFT_matching_threshold = 2
-samson_err = 0.9 #0.5
-RANSAC_nIter = 2000
-ratio_test = 0.7
-Gaussian_kernel = 0
-Gaussian_deviation = 30
-Specular_thr = 0.1
+    samson_err = 0.9 #0.5
 
-blur_on = True
-g_blur_on = True
-sized_on = False
-intens_on = False
-is_thrs_on = True
-point_size = 30
-ED_size = point_size #30
-AD_size = point_size  #
+    RANSAC_nIter = 2000
 
-def makeFieldByPoints(img, pts, intns = None):
-    blank_image = np.zeros(img.shape, np.uint8)
-    maxIntns = 255
-    for i, pt in enumerate(pts):
-        color = 1
-        if intens_on:
-            if intns is not None:
-                color = intns[i]
-        blank_image = cv.circle(blank_image, tuple(pt), point_size, color * maxIntns, -1)
-    if not blur_on:
-        return blank_image
-    if g_blur_on:
-        return cv.GaussianBlur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-    return cv.blur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
+    ratio_test = 0.7
 
-def makeImgFromField(field):
-    maxIntns = 255
-    return np.multiply(maxIntns, field)
+    Gaussian_kernel = 0
+    Gaussian_deviation = 30
+    Specular_thr = 0.1
 
-def makeFieldFromIg(field):
-    maxIntns = 255
-    return np.divide(field, maxIntns)
+    blur_on = True
+    g_blur_on = True
+    sized_on = False
+    intens_on = False
+    is_thrs_on = True
+    point_size = 30
+    ED_size = point_size #30
+    AD_size = point_size  #
 
-def andMasks(m1, m2):
-    #cv.multiply(m1, m2)
+    def makeFieldByPoints(this, img, pts, intns = None):
+        blank_image = np.zeros(img.shape, np.uint8)
+        maxIntns = 255
+        for i, pt in enumerate(pts):
+            color = 1
+            if this.intens_on:
+                if intns is not None:
+                    color = intns[i]
+            blank_image = cv.circle(blank_image, tuple(pt), this.point_size, color * maxIntns, -1)
+        if not this.blur_on:
+            return blank_image
+        if this.g_blur_on:
+            return cv.GaussianBlur(blank_image, (this.Gaussian_kernel, this.Gaussian_kernel), this.Gaussian_deviation)
+        return cv.blur(blank_image, (this.Gaussian_kernel, this.Gaussian_kernel), this.Gaussian_deviation)
 
-    r1 = m1.astype(float) / 255
-    r2 = m2.astype(float) / 255
-    r = np.multiply(r1, r2)
-    m = r * 255
-    m = m.astype(np.uint8)
-    if is_thrs_on:
-        _, m = cv.threshold(m, int(Specular_thr * 255), 255, cv.THRESH_BINARY)
-    return m
+    def makeImgFromField(this, field):
+        maxIntns = 255
+        return np.multiply(maxIntns, field)
 
-def getMasksFromFrames(img1, img2):
-    ''' MAKE SPECULAR MASK FROM TWO CONSISTENT FRAMES '''
+    def makeFieldFromIg(this, field):
+        maxIntns = 255
+        return np.divide(field, maxIntns)
 
-    # SIFT CREATE
-    sift = cv.SIFT_create(contrastThreshold=SIFT_peak_threshold, edgeThreshold=SIFT_edge_threshold)
-    kp1, des1 = sift.detectAndCompute(img1, None)
-    kp2, des2 = sift.detectAndCompute(img2, None)
+    def andMasks(this, m1, m2):
+        #cv.multiply(m1, m2)
 
-    # AVERAGE VECTOR THRESHOLD
-    '''av1 = [np.average(des) for des in des1]
-    flag = 0
-    for d in av1:
-        if d <= 10:
-            flag += 1
-    print(flag)'''
+        r1 = m1.astype(float) / 255
+        r2 = m2.astype(float) / 255
+        r = np.multiply(r1, r2)
+        m = r * 255
+        m = m.astype(np.uint8)
+        if this.is_thrs_on:
+            _, m = cv.threshold(m, int(this.Specular_thr * 255), 255, cv.THRESH_BINARY)
+        return m
 
-    # FLANN parameters
-    FLANN_INDEX_KDTREE = 1
-    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)
+    def getMasksFromFrames(this, img1, img2):
+        ''' MAKE SPECULAR MASK FROM TWO CONSISTENT FRAMES '''
 
-    # KDTREE MATCHING
-    flann = cv.FlannBasedMatcher(index_params, search_params)
-    matches = flann.knnMatch(des1, des2, k=SIFT_matching_threshold)
-    pts1 = []
-    pts2 = []
-    kpts1 = []
-    kpts2 = []
-    dess1 = []
-    dess2 = []
-    good = []
+        # SIFT CREATE
+        sift = cv.SIFT_create(contrastThreshold=this.SIFT_peak_threshold, edgeThreshold=this.SIFT_edge_threshold)
+        kp1, des1 = sift.detectAndCompute(img1, None)
+        kp2, des2 = sift.detectAndCompute(img2, None)
 
-    # ratio test as per Lowe's paper
-    for i, (m, n) in enumerate(matches):
-        if m.distance < ratio_test * n.distance:
-            good.append(m)
-            pts2.append(kp2[m.trainIdx].pt)
-            pts1.append(kp1[m.queryIdx].pt)
-            kpts2.append(kp2[m.trainIdx])
-            kpts1.append(kp1[m.queryIdx])
-            dess2.append(des2[m.trainIdx])
-            dess1.append(des1[m.queryIdx])
-    dess1 = np.array(dess1)
-    dess2 = np.array(dess2)
-    kpts1 = np.array(kpts1)
-    kpts2 = np.array(kpts2)
+        # AVERAGE VECTOR THRESHOLD
+        '''av1 = [np.average(des) for des in des1]
+        flag = 0
+        for d in av1:
+            if d <= 10:
+                flag += 1
+        print(flag)'''
 
-    pts1 = np.int32(pts1)
-    pts2 = np.int32(pts2)
+        # FLANN parameters
+        FLANN_INDEX_KDTREE = 1
+        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+        search_params = dict(checks=50)
+
+        # KDTREE MATCHING
+        flann = cv.FlannBasedMatcher(index_params, search_params)
+        matches = flann.knnMatch(des1, des2, k=this.SIFT_matching_threshold)
+        pts1 = []
+        pts2 = []
+        kpts1 = []
+        kpts2 = []
+        dess1 = []
+        dess2 = []
+        good = []
+
+        # ratio test as per Lowe's paper
+        for i, (m, n) in enumerate(matches):
+            if m.distance < this.ratio_test * n.distance:
+                good.append(m)
+                pts2.append(kp2[m.trainIdx].pt)
+                pts1.append(kp1[m.queryIdx].pt)
+                kpts2.append(kp2[m.trainIdx])
+                kpts1.append(kp1[m.queryIdx])
+                dess2.append(des2[m.trainIdx])
+                dess1.append(des1[m.queryIdx])
+        dess1 = np.array(dess1)
+        dess2 = np.array(dess2)
+        kpts1 = np.array(kpts1)
+        kpts2 = np.array(kpts2)
+
+        pts1 = np.int32(pts1)
+        pts2 = np.int32(pts2)
 
 
-    # FUNDAMENTAL MATRIX CALCULATION
-    F, mask = cv.findFundamentalMat(pts1, pts2, cv.RANSAC, ransacReprojThreshold=samson_err, confidence=0.995,
-                                    maxIters=RANSAC_nIter)
-    # INLINERS
-    inl_pts1 = pts1[mask.ravel() == 1]
-    inl_pts2 = pts2[mask.ravel() == 1]
-    inl_des1 = []
-    inl_des2 = []
-    inl_kpts1 = []
-    inl_kpts2 = []
-    for i, m in enumerate(mask.ravel()):
-        if m == 1:
-            inl_des1.append(dess1[i])
-            inl_des2.append(dess2[i])
-            inl_kpts1.append(kpts1[i])
-            inl_kpts2.append(kpts2[i])
+        # FUNDAMENTAL MATRIX CALCULATION
+        F, mask = cv.findFundamentalMat(pts1, pts2, cv.RANSAC, ransacReprojThreshold=this.samson_err, confidence=0.995,
+                                        maxIters=this.RANSAC_nIter)
+        # INLINERS
+        inl_pts1 = pts1[mask.ravel() == 1]
+        inl_pts2 = pts2[mask.ravel() == 1]
+        inl_des1 = []
+        inl_des2 = []
+        inl_kpts1 = []
+        inl_kpts2 = []
+        for i, m in enumerate(mask.ravel()):
+            if m == 1:
+                inl_des1.append(dess1[i])
+                inl_des2.append(dess2[i])
+                inl_kpts1.append(kpts1[i])
+                inl_kpts2.append(kpts2[i])
 
-    # DESCRIPTOR L1 NORM
-    des_dif = np.abs(dess2 - dess1)
-    des_l1 = [norm(d, 1) for d in des_dif]
-    des_l1 = np.array(des_l1)
-    des_l1_norm = ((des_l1 - des_l1.min()) / (des_l1.max() - des_l1.min()))
+        # DESCRIPTOR L1 NORM
+        des_dif = np.abs(dess2 - dess1)
+        des_l1 = [norm(d, 1) for d in des_dif]
+        des_l1 = np.array(des_l1)
+        des_l1_norm = ((des_l1 - des_l1.min()) / (des_l1.max() - des_l1.min()))
 
-    # OUTLINERS
-    outl_pts1 = pts1[mask.ravel() == 0]
-    outl_pts2 = pts2[mask.ravel() == 0]
-    outl_kpts1 = []
-    outl_kpts2 = []
-    for i, m in enumerate(mask.ravel()):
-        if m == 0:
-            outl_kpts1.append(kpts1[i])
-            outl_kpts2.append(kpts2[i])
+        # OUTLINERS
+        outl_pts1 = pts1[mask.ravel() == 0]
+        outl_pts2 = pts2[mask.ravel() == 0]
+        outl_kpts1 = []
+        outl_kpts2 = []
+        for i, m in enumerate(mask.ravel()):
+            if m == 0:
+                outl_kpts1.append(kpts1[i])
+                outl_kpts2.append(kpts2[i])
 
-    ED_mask = makeFieldByPoints(img2, outl_pts2)
-    AD_mask = makeFieldByPoints(img2, inl_pts2, des_l1_norm)
+        ED_mask = this.makeFieldByPoints(img2, outl_pts2)
+        AD_mask = this.makeFieldByPoints(img2, inl_pts2, des_l1_norm)
 
-    SPEC_mask = andMasks(ED_mask, AD_mask)
+        SPEC_mask = this.andMasks(ED_mask, AD_mask)
 
-    '''if is_thrs_on:
-        _, SPEC_mask = cv.threshold(SPEC_mask, Specular_thr, 255, cv.THRESH_TOZERO)'''
+        '''if is_thrs_on:
+            _, SPEC_mask = cv.threshold(SPEC_mask, Specular_thr, 255, cv.THRESH_TOZERO)'''
 
-    return (SPEC_mask, ED_mask, AD_mask)
+        return (SPEC_mask, ED_mask, AD_mask)
 
-def combineFrameAndMask(img, mask):
-    #color = np.array([255, 0, 255])
-    #white_mask = cv.cvtColor(makeImgFromField(mask), cv.COLOR_GRAY2RGB)
-    white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
-    r, g, b = cv.split(white_mask)
-    z = np.zeros(g.shape, np.uint8)
-    color_mask = cv.merge([r, z, b])
-    res = cv.addWeighted(img, 1, color_mask, 0.7, 0.0)
-    return res
+    def combineFrameAndMask(this, img, mask):
+        #color = np.array([255, 0, 255])
+        #white_mask = cv.cvtColor(makeImgFromField(mask), cv.COLOR_GRAY2RGB)
+        white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+        r, g, b = cv.split(white_mask)
+        z = np.zeros(g.shape, np.uint8)
+        color_mask = cv.merge([r, z, b])
+        res = cv.addWeighted(img, 1, color_mask, 0.7, 0.0)
+        return res
 
-def getMaskedImage(img1, img2):
-    SPEC_mask, ED_mask, AD_mask = getMasksFromFrames(img1, img2)
-    img_mask = combineFrameAndMask(img2_2, SPEC_mask)
-    return img_mask
+    def getMaskedImage(this, img1, img2):
+        SPEC_mask, ED_mask, AD_mask = this.getMasksFromFrames(img1, img2)
+        img_mask = this.combineFrameAndMask(img2_2, SPEC_mask)
+        return img_mask
 
-def findContour(img, mask):
-    contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
-    image_copy = img.copy()
-    cv.drawContours(image=image_copy, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv.LINE_AA)
-    print(cv.contourArea(contours[0]))
-    return image_copy
+    def findContour(this, img, mask):
+        contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
+        image_copy = img.copy()
+        cv.drawContours(image=image_copy, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv.LINE_AA)
+        print(cv.contourArea(contours[0]))
+        return image_copy
 
-def getMaskArea(mask):
-    contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_LIST, method=cv.CHAIN_APPROX_NONE)
-    totalArea = 0.0
-    for c in contours:
-        totalArea += cv.contourArea(c)
-    return totalArea
+    def getMaskArea(this, mask):
+        contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_LIST, method=cv.CHAIN_APPROX_NONE)
+        totalArea = 0.0
+        for c in contours:
+            totalArea += cv.contourArea(c)
+        return totalArea
 
-def getPrecisionRecall(maskSpec, maskTrue):
-    maskIntersec = cv.bitwise_and(maskSpec, maskTrue)
-    I = getMaskArea(maskIntersec)
-    D = getMaskArea(maskSpec)
-    G = getMaskArea(maskTrue)
-    Precision = I / D
-    Recall = I / G
-    return (Precision, Recall)
+    def getPrecisionRecall(this, maskSpec, maskTrue):
+        maskIntersec = cv.bitwise_and(maskSpec, maskTrue)
+        I = this.getMaskArea(maskIntersec)
+        D = this.getMaskArea(maskSpec)
+        G = this.getMaskArea(maskTrue)
+        Precision = I / D
+        Recall = I / G
+        return (Precision, Recall)
 
 if __name__ == '__main__':
     img_name1 = '20131114_155630.jpg'
@@ -221,16 +213,18 @@ if __name__ == '__main__':
     img_path = 'img/RealTestset2013/Cabinet/'
     '''
     '''
+    slvr = Solver()
+
     img1 = cv.imread(img_path + img_name1, cv.IMREAD_GRAYSCALE)
     img2 = cv.imread(img_path + img_name2, cv.IMREAD_GRAYSCALE)
     img1_2 = cv.imread(img_path + img_name1, cv.IMREAD_COLOR)
     img2_2 = cv.imread(img_path + img_name2, cv.IMREAD_COLOR)
 
-    SPEC_mask, ED_mask, AD_mask = getMasksFromFrames(img1, img2)
+    SPEC_mask, ED_mask, AD_mask = slvr.getMasksFromFrames(img1, img2)
 
     plt.subplot(141), plt.imshow(img2_2)
     #plt.subplot(143), plt.imshow(findContour(img2_2, SPEC_mask))
-    plt.subplot(142), plt.imshow(combineFrameAndMask(img2_2, ED_mask))
-    plt.subplot(143), plt.imshow(combineFrameAndMask(img2_2, AD_mask))
-    plt.subplot(144), plt.imshow(combineFrameAndMask(img2_2, SPEC_mask))
+    plt.subplot(142), plt.imshow(slvr.combineFrameAndMask(img2_2, ED_mask))
+    plt.subplot(143), plt.imshow(slvr.combineFrameAndMask(img2_2, AD_mask))
+    plt.subplot(144), plt.imshow(slvr.combineFrameAndMask(img2_2, SPEC_mask))
     plt.show()
