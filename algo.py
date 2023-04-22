@@ -19,23 +19,23 @@ def drawFieldKPoints(img, kpts):
     return img'''
 
 '''ARTICLE PARAMETERS'''
-SIFT_peak_threshold = 0.09 #0.08
+SIFT_peak_threshold = 0.05 #0.08
 SIFT_edge_threshold = 10
 SIFT_feature_elimination_threshold = 5
 SIFT_matching_threshold = 2
-samson_err = 0.3 #0.5
+samson_err = 0.9 #0.5
 RANSAC_nIter = 2000
 ratio_test = 0.7
 Gaussian_kernel = 0
 Gaussian_deviation = 30
-Specular_thr = 0.001
+Specular_thr = 0.1
 
-g_blur_on = True
 blur_on = True
+g_blur_on = True
 sized_on = False
 intens_on = False
 is_thrs_on = True
-point_size = 20
+point_size = 30
 ED_size = point_size #30
 AD_size = point_size  #
 
@@ -47,7 +47,7 @@ def makeFieldByPoints(img, pts, intns = None):
         if intens_on:
             if intns is not None:
                 color = intns[i]
-        blank_image = cv.circle(blank_image, tuple(pt), AD_size, color * maxIntns, -1)
+        blank_image = cv.circle(blank_image, tuple(pt), point_size, color * maxIntns, -1)
     if not blur_on:
         return blank_image
     if g_blur_on:
@@ -61,6 +61,18 @@ def makeImgFromField(field):
 def makeFieldFromIg(field):
     maxIntns = 255
     return np.divide(field, maxIntns)
+
+def andMasks(m1, m2):
+    #cv.multiply(m1, m2)
+
+    r1 = m1.astype(float) / 255
+    r2 = m2.astype(float) / 255
+    r = np.multiply(r1, r2)
+    m = r * 255
+    m = m.astype(np.uint8)
+    if is_thrs_on:
+        _, m = cv.threshold(m, int(Specular_thr * 255), 255, cv.THRESH_BINARY)
+    return m
 
 def getMasksFromFrames(img1, img2):
     ''' MAKE SPECULAR MASK FROM TWO CONSISTENT FRAMES '''
@@ -135,9 +147,6 @@ def getMasksFromFrames(img1, img2):
     des_l1 = [norm(d, 1) for d in des_dif]
     des_l1 = np.array(des_l1)
     des_l1_norm = ((des_l1 - des_l1.min()) / (des_l1.max() - des_l1.min()))
-    _ = 1
-    #des_dif = [np.abs(d2 - d1) for (d1, d2) in zip(dess1, dess2)]
-    #des_l1 = [norm(d, 1) for d in des_dif]
 
     # OUTLINERS
     outl_pts1 = pts1[mask.ravel() == 0]
@@ -149,54 +158,20 @@ def getMasksFromFrames(img1, img2):
             outl_kpts1.append(kpts1[i])
             outl_kpts2.append(kpts2[i])
 
-    '''
-    matchesMask = mask.ravel().tolist()
-    matchesMask = [1 if not i else 0 for i in matchesMask]
-    draw_params = dict(matchColor=None,  # draw matches in green color
-                       singlePointColor=(255, 0, 0),
-                       matchesMask=matchesMask,  # draw only inliers
-                       flags=2)
-    '''
-    # img3 = cv.drawMatches(img1, kp1, img2, kp2, good, None, **draw_params)
-    # kpts1 = kpts1[mask.ravel() == 0]
-    # img3 = cv.drawKeypoints(img1, kpts1, None)
-    #img3 = drawFieldPoints(img1, outl_pts1)
-
-    '''
-    img3 = makeFieldED(img2, outl_pts2)
-    img4 = makeFieldAD(img2, inl_pts2, des_l1_norm)
-    if sized_on:
-        img3 = makeFieldED_KP(img2, outl_kpts2)
-        img4 = makeFieldAD_KP(img2, inl_kpts2, des_l1_norm)
-
-    img3 = cv.cvtColor(img3, cv.COLOR_RGB2GRAY)
-    img4 = cv.cvtColor(img4, cv.COLOR_RGB2GRAY)
-
-    if is_thrs_on:
-        _, img3 = cv.threshold(img3, Specular_thr, 255, cv.THRESH_BINARY)
-        _, img4 = cv.threshold(img4, Specular_thr, 255, cv.THRESH_BINARY)
-
-    #img5 = cv.bitwise_and(img3, img4)
-    img5 = cv.multiply(img3, img4)
-    plt.subplot(141), plt.imshow(img2_2)
-    plt.subplot(142), plt.imshow(img3)
-    plt.subplot(143), plt.imshow(img4)
-    plt.subplot(144), plt.imshow(img5)
-    plt.show()'''
-
     ED_mask = makeFieldByPoints(img2, outl_pts2)
     AD_mask = makeFieldByPoints(img2, inl_pts2, des_l1_norm)
 
-    SPEC_mask = cv.multiply(ED_mask, AD_mask)
+    SPEC_mask = andMasks(ED_mask, AD_mask)
 
-    if is_thrs_on:
-        _, SPEC_mask = cv.threshold(SPEC_mask, Specular_thr, 255, cv.THRESH_TOZERO)
+    '''if is_thrs_on:
+        _, SPEC_mask = cv.threshold(SPEC_mask, Specular_thr, 255, cv.THRESH_TOZERO)'''
 
-    return (ED_mask, AD_mask, SPEC_mask)
+    return (SPEC_mask, ED_mask, AD_mask)
 
 def combineFrameAndMask(img, mask):
     #color = np.array([255, 0, 255])
-    white_mask = cv.cvtColor(makeImgFromField(mask), cv.COLOR_GRAY2RGB)
+    #white_mask = cv.cvtColor(makeImgFromField(mask), cv.COLOR_GRAY2RGB)
+    white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
     r, g, b = cv.split(white_mask)
     z = np.zeros(g.shape, np.uint8)
     color_mask = cv.merge([r, z, b])
@@ -204,68 +179,32 @@ def combineFrameAndMask(img, mask):
     return res
 
 def getMaskedImage(img1, img2):
-    ED_mask, AD_mask, SPEC_mask = getMasksFromFrames(img1, img2)
+    SPEC_mask, ED_mask, AD_mask = getMasksFromFrames(img1, img2)
     img_mask = combineFrameAndMask(img2_2, SPEC_mask)
     return img_mask
 
+def findContour(img, mask):
+    contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
+    image_copy = img.copy()
+    cv.drawContours(image=image_copy, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv.LINE_AA)
+    print(cv.contourArea(contours[0]))
+    return image_copy
 
-'''
-def makeFieldAD(img, pts, intns):
-    #color = (0, 1, 0)
-    blank_image = np.zeros(img.shape, np.uint8)
-    blank_image = cv.cvtColor(blank_image, cv.COLOR_GRAY2BGR)
-    color = np.array([0, 255, 0])
-    for i, pt in enumerate(pts):
-        i_c = color
-        if intens_on:
-            i_c = np.multiply(color, intns[i])
-        blank_image = cv.circle(blank_image, tuple(pt), AD_size, i_c.tolist() , -1)
-    if not blur_on:
-        return blank_image
-    if g_blur_on:
-        return cv.GaussianBlur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-    return cv.blur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
+def getMaskArea(mask):
+    contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_LIST, method=cv.CHAIN_APPROX_NONE)
+    totalArea = 0.0
+    for c in contours:
+        totalArea += cv.contourArea(c)
+    return totalArea
 
-def makeFieldAD_KP(img, kpts, intns):
-    #color = (0, 1, 0)
-    blank_image = np.zeros(img.shape, np.uint8)
-    blank_image = cv.cvtColor(blank_image, cv.COLOR_GRAY2BGR)
-    color = np.array([0, 255, 0])
-    for i, pt in enumerate(kpts):
-        i_c = color
-        if intens_on:
-            i_c = np.multiply(color, intns[i])
-        blank_image = cv.circle(blank_image, tuple(np.int32(pt.pt)), np.int32(pt.size/2), i_c.tolist() , -1)
-    if not blur_on:
-        return blank_image
-    if g_blur_on:
-        return cv.GaussianBlur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-    return cv.blur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-
-def makeFieldED(img, pts):
-    blank_image = np.zeros(img.shape, np.uint8)
-    blank_image = cv.cvtColor(blank_image, cv.COLOR_GRAY2BGR)
-    color = (0, 255, 0)
-    for i, pt in enumerate(pts):
-        blank_image = cv.circle(blank_image, tuple(pt), ED_size, color, -1)
-    if not blur_on:
-        return blank_image
-    if g_blur_on:
-        return cv.GaussianBlur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-    return cv.blur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-
-def makeFieldED_KP(img, kpts):
-    blank_image = np.zeros(img.shape, np.uint8)
-    blank_image = cv.cvtColor(blank_image, cv.COLOR_GRAY2BGR)
-    color = (0, 255, 0)
-    for i, pt in enumerate(kpts):
-        blank_image = cv.circle(blank_image, tuple(np.int32(pt.pt)), np.int32(pt.size/2), color, -1)
-    if not blur_on:
-        return blank_image
-    if g_blur_on:
-        return cv.GaussianBlur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-    return cv.blur(blank_image, (Gaussian_kernel, Gaussian_kernel), Gaussian_deviation)
-'''
+def getPrecisionRecall(maskSpec, maskTrue):
+    maskIntersec = cv.bitwise_and(maskSpec, maskTrue)
+    I = getMaskArea(maskIntersec)
+    D = getMaskArea(maskSpec)
+    G = getMaskArea(maskTrue)
+    Precision = I / D
+    Recall = I / G
+    return (Precision, Recall)
 
 if __name__ == '__main__':
     img_name1 = '20131114_155630.jpg'
@@ -277,6 +216,9 @@ if __name__ == '__main__':
     img_name1 = '20131114_154749.jpg'
     img_name2 = '20131114_154753.jpg'
     img_path = 'img/RealTestset2013/Hallway/'
+    img_name1 = 'Cabinet2_Full_1.jpg'
+    img_name2 = 'Cabinet2_Full_2.jpg'
+    img_path = 'img/RealTestset2013/Cabinet/'
     '''
     '''
     img1 = cv.imread(img_path + img_name1, cv.IMREAD_GRAYSCALE)
@@ -284,12 +226,11 @@ if __name__ == '__main__':
     img1_2 = cv.imread(img_path + img_name1, cv.IMREAD_COLOR)
     img2_2 = cv.imread(img_path + img_name2, cv.IMREAD_COLOR)
 
-    ED_mask, AD_mask, SPEC_mask = getMasksFromFrames(img1, img2)
-
-    img_mask = combineFrameAndMask(img2_2, SPEC_mask)
+    SPEC_mask, ED_mask, AD_mask = getMasksFromFrames(img1, img2)
 
     plt.subplot(141), plt.imshow(img2_2)
-    plt.subplot(142), plt.imshow(img_mask)
-    plt.subplot(143), plt.imshow(combineFrameAndMask(img2_2, ED_mask))
-    plt.subplot(144), plt.imshow(combineFrameAndMask(img2_2, AD_mask))
+    #plt.subplot(143), plt.imshow(findContour(img2_2, SPEC_mask))
+    plt.subplot(142), plt.imshow(combineFrameAndMask(img2_2, ED_mask))
+    plt.subplot(143), plt.imshow(combineFrameAndMask(img2_2, AD_mask))
+    plt.subplot(144), plt.imshow(combineFrameAndMask(img2_2, SPEC_mask))
     plt.show()
