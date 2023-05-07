@@ -2,6 +2,24 @@ import numpy as np
 from numpy.linalg import norm
 import cv2 as cv
 from matplotlib import pyplot as plt
+from enum import Enum
+
+'''ARTICLE PARAMETERS'''
+'''SIFT_peak_threshold = 0.07 #0.08
+SIFT_edge_threshold = 10
+
+SIFT_feature_elimination_threshold = 10
+SIFT_matching_threshold = 2
+
+samson_err = 0.3 #0.5
+
+RANSAC_nIter = 2000
+
+ratio_test = 0.7
+
+Gaussian_kernel = 0
+Gaussian_deviation = 30
+Specular_thr = 0.1'''
 
 class Solver:
 
@@ -18,20 +36,28 @@ class Solver:
 
     ratio_test = 0.7
 
-    Gaussian_kernel = 0
-    Gaussian_deviation = 30
+    Gaussian_kernel = 61
+    Gaussian_deviation = 0
     Specular_thr = 0.1
 
     blur_on = True
     g_blur_on = True
     sized_on = False
     intens_on = True
-    is_thrs_on = True
-    point_size = 30
+    is_thrs_on = False
+    point_size = 1
     ED_size = point_size #30
     AD_size = point_size  #
 
-    def __init__(self, SIFT_peak=0.8, SIFT_edge=10, Samson_err=0.5, Ratio=0.7, G_deviation=30, P_size=30):
+    class AndMethod(Enum):
+        MUL = 0
+        CONT_MUL = 1
+        MIN = 2
+        MAX = 3
+
+    andMethod = AndMethod.MIN
+
+    def __init__(self, SIFT_peak=0.09, SIFT_edge=8, Samson_err=0.5, Ratio=0.8, G_deviation=0, P_size=1):
         self.SIFT_peak_threshold = SIFT_peak
         self.SIFT_edge_threshold = SIFT_edge
         self.samson_err = Samson_err
@@ -63,18 +89,28 @@ class Solver:
         return np.divide(field, maxIntns)
 
     def andMasks(self, m1, m2):
-        m = cv.multiply(m1, m2)
-
         '''
-        r1 = m1.astype(float) / 255
-        r2 = m2.astype(float) / 255
-        r = np.multiply(r1, r2)
-        m = r * 255
-        m = m.astype(np.uint8)
+        if self.is_thrs_on:
+            _, m1 = cv.threshold(m1, int(self.Specular_thr * 255), 255, cv.THRESH_BINARY)
+            _, m2 = cv.threshold(m2, int(self.Specular_thr * 255), 255, cv.THRESH_BINARY)
         '''
+        m = np.zeros(m1.shape)
+        if self.andMethod == self.AndMethod.MUL:
+            m = cv.multiply(m1, m2)
+        elif self.andMethod == self.AndMethod.MAX:
+            m = np.maximum(m1, m2)
+        elif self.andMethod == self.AndMethod.MIN:
+            m = np.minimum(m1, m2)
+        elif self.andMethod == self.AndMethod.CONT_MUL:
+            r1 = m1.astype(float) / 255
+            r2 = m2.astype(float) / 255
+            r = np.multiply(r1, r2)
+            m = r * 255
+            m = m.astype(np.uint8)
 
         if self.is_thrs_on:
             _, m = cv.threshold(m, int(self.Specular_thr * 255), 255, cv.THRESH_BINARY)
+
         return m
 
     def getMasksFromFrames(self, img1, img2):
@@ -86,13 +122,13 @@ class Solver:
         kp2, des2 = sift.detectAndCompute(img2, None)
 
         # AVERAGE VECTOR THRESHOLD
-        av1 = [np.average(des) for des in des1]
+        '''av1 = [np.average(des) for des in des1]
         flag = 0
         for d in av1:
             if d <= self.SIFT_feature_elimination_threshold:
                 flag += 1
         if flag > 0:
-            print(flag)
+            print(flag)'''
 
         # FLANN parameters
         FLANN_INDEX_KDTREE = 1
@@ -130,7 +166,7 @@ class Solver:
 
 
         # FUNDAMENTAL MATRIX CALCULATION
-        F, mask = cv.findFundamentalMat(pts1, pts2, cv.RANSAC, ransacReprojThreshold=self.samson_err, confidence=0.995,
+        F, mask = cv.findFundamentalMat(pts1, pts2, cv.RANSAC, ransacReprojThreshold=self.samson_err, confidence=0.99,
                                         maxIters=self.RANSAC_nIter)
         # INLINERS
         inl_pts1 = pts1[mask.ravel() == 1]
@@ -187,13 +223,6 @@ class Solver:
         img_mask = self.combineFrameAndMask(img2_2, SPEC_mask)
         return img_mask
 
-    '''def findContour(self, img, mask):
-        contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
-        image_copy = img.copy()
-        cv.drawContours(image=image_copy, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv.LINE_AA)
-        print(cv.contourArea(contours[0]))
-        return image_copy'''
-
     def getMaskArea(self, mask):
         contours, hierarchy = cv.findContours(image=mask, mode=cv.RETR_LIST, method=cv.CHAIN_APPROX_NONE)
         totalArea = 0.0
@@ -203,6 +232,8 @@ class Solver:
 
     def getPrecisionRecall(self, maskSpec, maskTrue):
         maskIntersec = cv.bitwise_and(maskSpec, maskTrue)
+        '''cv.imshow('img', maskTrue)
+        cv.waitKey(0)'''
         I = self.getMaskArea(maskIntersec)
         D = self.getMaskArea(maskSpec)
         G = self.getMaskArea(maskTrue)
@@ -210,22 +241,49 @@ class Solver:
         Recall = I / G
         return (Precision, Recall)
 
+    def combineImgAndMasks(self, img, ED, AD, SPEC):
+        pass
+
+def drawCircleExp():
+    # create black background
+    background = np.zeros((450, 450, 3), np.uint8)
+
+    # initialize the mask of same shape but single channel
+    mask = np.zeros((450, 450), np.uint8)
+
+    # draw a circle onto the mask and apply Gaussian blur
+    mask = cv.circle(mask, (250, 250), 1, (255, 255, 255), -1, cv.LINE_AA)
+    mask1 = cv.GaussianBlur(mask, (61, 61), 0)
+    mask2 = cv.GaussianBlur(mask, (0, 0), 30)
+    mask3 = cv.GaussianBlur(mask, (61, 61), 30)
+    plt.subplot(221), plt.imshow(mask)
+    plt.subplot(222), plt.imshow(mask1)
+    plt.subplot(223), plt.imshow(mask2)
+    plt.subplot(224), plt.imshow(mask3)
+    plt.show()
+
 if __name__ == '__main__':
-    img_name1 = '20131114_155630.jpg'
-    img_name2 = '20131114_155632.jpg'
-    img_path = 'img/RealTestset2013/Street/'
-    img_name1 = '20131112_152921.jpg'
-    img_name2 = '20131112_152924.jpg'
-    img_path = 'img/RealTestset2013/Office/'
-    img_name1 = '20131114_154749.jpg'
-    img_name2 = '20131114_154753.jpg'
-    img_path = 'img/RealTestset2013/Hallway/'
+    img_path = 'img/RealTestset2013/Cabinet/'
     img_name1 = 'Cabinet2_Full_1.jpg'
     img_name2 = 'Cabinet2_Full_2.jpg'
+    img_path = 'img/RealTestset2013/Office/'
+    img_name1 = '20131112_152921.jpg'
+    img_name2 = '20131112_152924.jpg'
+    img_path = 'img/RealTestset2013/Hallway/'
+    img_name1 = '20131114_154749.jpg'
+    img_name2 = '20131114_154753.jpg'
+    img_path = 'img/RealTestset2013/Street/'
+    img_name1 = '20131114_155630.jpg'
+    img_name2 = '20131114_155632.jpg'
     img_path = 'img/RealTestset2013/Cabinet/'
+    img_name1 = 'Cabinet2_Full_1.jpg'
+    img_name2 = 'Cabinet2_Full_2.jpg'
+    img_name1 = 'Cabinet3_F_Sp_1.jpg'
+    img_name2 = 'Cabinet3_F_Sp_2.jpg'
     '''
     '''
-    slvr = Solver()
+    slvr = Solver(0.09, 8, 0.02, 0.7
+                  , 0, 10)
 
     img1 = cv.imread(img_path + img_name1, cv.IMREAD_GRAYSCALE)
     img2 = cv.imread(img_path + img_name2, cv.IMREAD_GRAYSCALE)
@@ -234,9 +292,29 @@ if __name__ == '__main__':
 
     SPEC_mask, ED_mask, AD_mask = slvr.getMasksFromFrames(img1, img2)
 
-    plt.subplot(141), plt.imshow(img2_2)
-    #plt.subplot(143), plt.imshow(findContour(img2_2, SPEC_mask))
-    plt.subplot(142), plt.imshow(slvr.combineFrameAndMask(img2_2, ED_mask))
-    plt.subplot(143), plt.imshow(slvr.combineFrameAndMask(img2_2, AD_mask))
-    plt.subplot(144), plt.imshow(slvr.combineFrameAndMask(img2_2, SPEC_mask))
+    plt.subplot(221), plt.imshow(img2_2)
+    plt.subplot(222), plt.imshow(SPEC_mask)
+    #plt.subplot(222), plt.imshow(slvr.combineFrameAndMask(img2_2, SPEC_mask))
+    #plt.subplot(142), plt.imshow(slvr.combineFrameAndMask(img2_2, ED_mask))
+    #plt.subplot(143), plt.imshow(slvr.combineFrameAndMask(img2_2, AD_mask))
+    plt.subplot(223), plt.imshow(ED_mask)
+    plt.subplot(224), plt.imshow(AD_mask)
+
+
+
+    '''
+    intsec = cv.bitwise_and(SPEC_mask, img3)
+    plt.subplot(241), plt.imshow(ED_mask)
+    plt.subplot(242), plt.imshow(AD_mask)
+    plt.subplot(243), plt.imshow(SPEC_mask)
+
+    plt.subplot(245), plt.imshow(img2_2)
+    plt.subplot(246), plt.imshow(SPEC_mask)
+    plt.subplot(247), plt.imshow(img3)
+    plt.subplot(248), plt.imshow(intsec)
+    I = slvr.getMaskArea(intsec)
+    D = slvr.getMaskArea(SPEC_mask)
+    G = slvr.getMaskArea(img3)
+    print (I, D, G)
+    '''
     plt.show()
