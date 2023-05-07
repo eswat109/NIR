@@ -16,12 +16,21 @@ class MaskedVideoGenerator:
     def main(self):
         vid_dir = 'vid/'
 
-        vid_name = 'video_' + str(8)
+        vid_name = 'video_' + str(11)
         vid_format = '.mp4'
-        vid_name = 'Cabinet2_Full'
+
+        vid_name = 'Cabinet2_F'
+        vid_name = 'Cabinet2_F_Sq'
+        vid_name = 'Cabinet2_F_Sp'
+        vid_name = 'Cabinet3_F_Sp'
         vid_format = '.avi'
 
-        slvr = Solver()
+        #slvr = Solver(0.06, 8, 0.5, 0.7, 30, 20)
+        #slvr = Solver(0.08, 8, 0.9, 0.7, 30, 20)
+        #slvr = Solver(0.08, 8, 0.2, 0.7, 30, 20)
+
+        slvr = Solver(0.03, 10, 0.7, 0.7, 30, 20)
+        slvr = Solver(0.08, 10, 0.7, 0.7, 30, 20)
 
         cap = cv.VideoCapture(vid_dir + vid_name + vid_format)
         fourcc = cv.VideoWriter_fourcc(*'XVID')
@@ -35,7 +44,7 @@ class MaskedVideoGenerator:
         out = cv.VideoWriter(new_name, fourcc, fps, (int(frame_w), int(frame_h)))
         frame = prev_frame = None
         mask = None
-        frame_i = 0
+        frame_i = -1
         while cap.isOpened():
             ret, frame = cap.read()
             # if frame is read correctly ret is True
@@ -43,6 +52,7 @@ class MaskedVideoGenerator:
                 print("Can't receive frame (stream end?). Exiting ...")
                 break
 
+            frame_i += 1
             if prev_frame is None:
                 prev_frame = frame
                 continue
@@ -52,9 +62,8 @@ class MaskedVideoGenerator:
                 else:
                     masked_frame = self.getFrameToWrite(frame, mask, slvr)
                     out.write(masked_frame)
-                frame_i += 1
                 continue
-            frame_i = 0
+            frame_i = -1
 
             gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
             gray_prev_frame = cv.cvtColor(prev_frame, cv.COLOR_BGR2GRAY)
@@ -70,7 +79,7 @@ class MaskedVideoGenerator:
             masked_frame = self.getFrameToWrite(frame, mask, slvr)
             out.write(masked_frame)
 
-            prev_frame = frame
+            prev_frame = frame.copy()
         cap.release()
 
 if __name__ == '__main__':
