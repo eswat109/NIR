@@ -4,30 +4,14 @@ import cv2 as cv
 from matplotlib import pyplot as plt
 from enum import Enum
 
-'''ARTICLE PARAMETERS'''
-'''SIFT_peak_threshold = 0.07 #0.08
-SIFT_edge_threshold = 10
-
-SIFT_feature_elimination_threshold = 10
-SIFT_matching_threshold = 2
-
-samson_err = 0.3 #0.5
-
-RANSAC_nIter = 2000
-
-ratio_test = 0.7
-
-Gaussian_kernel = 0
-Gaussian_deviation = 30
-Specular_thr = 0.1'''
 
 class Solver:
 
-    '''ARTICLE PARAMETERS'''
+    # '''ARTICLE PARAMETERS'''
     SIFT_peak_threshold = 0.07 #0.08
     SIFT_edge_threshold = 10
 
-    SIFT_feature_elimination_threshold = 10
+    SIFT_feature_elimination_threshold = 25
     SIFT_matching_threshold = 2
 
     samson_err = 0.3 #0.5
@@ -45,7 +29,7 @@ class Solver:
     sized_on = False
     intens_on = True
     is_thrs_on = False
-    point_size = 1
+    point_size = 10
     ED_size = point_size #30
     AD_size = point_size  #
 
@@ -57,13 +41,22 @@ class Solver:
 
     andMethod = AndMethod.MIN
 
-    def __init__(self, SIFT_peak=0.09, SIFT_edge=8, Samson_err=0.5, Ratio=0.8, G_deviation=0, P_size=1):
-        self.SIFT_peak_threshold = SIFT_peak
-        self.SIFT_edge_threshold = SIFT_edge
-        self.samson_err = Samson_err
-        self.ratio_test = Ratio
-        self.Gaussian_deviation = G_deviation
-        self.point_size = P_size
+    #def __init__(self, SIFT_peak=0.09, SIFT_edge=8, Samson_err=0.5, Ratio=0.8, G_deviation=0, P_size=1):
+    def __init__(self, **kwargs):
+        if 'SIFT_peak' in kwargs.keys():
+            self.SIFT_peak_threshold = kwargs['SIFT_peak']
+        if 'SIFT_edge' in kwargs.keys():
+            self.SIFT_edge_threshold = kwargs['SIFT_edge']
+        if 'SIFT_feature_elimination' in kwargs.keys():
+            self.SIFT_feature_elimination_threshold = kwargs['SIFT_feature_elimination']
+        if 'Samson_err' in kwargs.keys():
+            self.samson_err = kwargs['Samson_err']
+        if 'Ratio' in kwargs.keys():
+            self.ratio_test = kwargs['Ratio']
+        if 'Gaussian_deviation' in kwargs.keys():
+            self.SIFT_edge_threshold = kwargs['G_deviation']
+        if 'P_size' in kwargs.keys():
+            self.point_size = kwargs['P_size']
 
     def makeFieldByPoints(self, img, pts, intns = None):
         blank_image = np.zeros(img.shape, np.uint8)
@@ -122,13 +115,20 @@ class Solver:
         kp2, des2 = sift.detectAndCompute(img2, None)
 
         # AVERAGE VECTOR THRESHOLD
-        '''av1 = [np.average(des) for des in des1]
-        flag = 0
-        for d in av1:
-            if d <= self.SIFT_feature_elimination_threshold:
-                flag += 1
-        if flag > 0:
-            print(flag)'''
+        if des1 is not None:
+            des1 = [des for des in des1 if np.average(des) > self.SIFT_feature_elimination_threshold]
+            des1 = np.array(des1)
+        if des2 is not None:
+            des2 = [des for des in des2 if np.average(des) > self.SIFT_feature_elimination_threshold]
+            des2 = np.array(des2)
+            #av1 = [np.average(des) for des in des1]
+            #av1 = [a for a in av1 if a > self.SIFT_feature_elimination_threshold]
+            '''flag = 0
+            for d in av1:
+                if d <= self.SIFT_feature_elimination_threshold:
+                    flag += 1
+            if flag > 0:
+                print(flag)'''
 
         # FLANN parameters
         FLANN_INDEX_KDTREE = 1
@@ -244,28 +244,8 @@ class Solver:
     def combineImgAndMasks(self, img, ED, AD, SPEC):
         pass
 
-def drawCircleExp():
-    # create black background
-    background = np.zeros((450, 450, 3), np.uint8)
-
-    # initialize the mask of same shape but single channel
-    mask = np.zeros((450, 450), np.uint8)
-
-    # draw a circle onto the mask and apply Gaussian blur
-    mask = cv.circle(mask, (250, 250), 1, (255, 255, 255), -1, cv.LINE_AA)
-    mask1 = cv.GaussianBlur(mask, (61, 61), 0)
-    mask2 = cv.GaussianBlur(mask, (0, 0), 30)
-    mask3 = cv.GaussianBlur(mask, (61, 61), 30)
-    plt.subplot(221), plt.imshow(mask)
-    plt.subplot(222), plt.imshow(mask1)
-    plt.subplot(223), plt.imshow(mask2)
-    plt.subplot(224), plt.imshow(mask3)
-    plt.show()
 
 if __name__ == '__main__':
-    img_path = 'img/RealTestset2013/Cabinet/'
-    img_name1 = 'Cabinet2_Full_1.jpg'
-    img_name2 = 'Cabinet2_Full_2.jpg'
     img_path = 'img/RealTestset2013/Office/'
     img_name1 = '20131112_152921.jpg'
     img_name2 = '20131112_152924.jpg'
@@ -282,8 +262,13 @@ if __name__ == '__main__':
     img_name2 = 'Cabinet3_F_Sp_2.jpg'
     '''
     '''
-    slvr = Solver(0.09, 8, 0.02, 0.7
-                  , 0, 10)
+    kwargs = {'SIFT_peak': 0.09,
+              'SIFT_edge': 8,
+              'SIFT_feature_elimination': 20,
+              'Samson_err': 0.02,
+              'Ratio': 0.7,
+              }
+    slvr = Solver(**kwargs)
 
     img1 = cv.imread(img_path + img_name1, cv.IMREAD_GRAYSCALE)
     img2 = cv.imread(img_path + img_name2, cv.IMREAD_GRAYSCALE)
