@@ -4,15 +4,15 @@ from enum import Enum
 
 from algo import *
 
-class MaskedVideoGenerator:
+class VideoHandler:
 
     class WorkMethod(Enum):
         Default = 0
         Detail = 1
 
-    MASK_ONLY = True
-    frame_gap = 1
-    method = WorkMethod.Detail
+    MASK_ONLY = False
+    frame_gap = 0
+    method = WorkMethod.Default
 
     def concatFrame(self, f, SPEC, ED, AD):
         img_1 = cv.hconcat([f, SPEC])
@@ -24,12 +24,22 @@ class MaskedVideoGenerator:
         res = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
         if not self.MASK_ONLY:
             if self.method == self.WorkMethod.Detail:
-                res = self.concatFrame(frame,
+                '''res = self.concatFrame(frame,
                                  slvr.combineFrameAndMask(frame, mask),
-                                 slvr.combineFrameAndMask(frame, ED),
-                                 slvr.combineFrameAndMask(frame, AD))
+                                       cv.cvtColor(ED, cv.COLOR_GRAY2RGB),
+                                       cv.cvtColor(AD, cv.COLOR_GRAY2RGB))'''
+                res = self.concatFrame(frame,
+                                       slvr.combineFrameAndMask(frame, mask),
+                                       slvr.combineFrameAndMask(frame, ED),
+                                       slvr.combineFrameAndMask(frame, AD)
+                                       )
+                '''res = self.concatFrame(slvr.combineFrameAndMask(frame, slvr.getMaxContourMask(mask)),
+                                       slvr.combineFrameAndMask(frame, mask),
+                                       cv.cvtColor(ED, cv.COLOR_GRAY2RGB),
+                                       cv.cvtColor(AD, cv.COLOR_GRAY2RGB))'''
             elif self.method == self.WorkMethod.Default:
                 res = slvr.combineFrameAndMask(frame, mask)
+                #res = slvr.combineFrameAndMask(frame, slvr.getMaxContourMask(mask))
         else:
             if self.method == self.WorkMethod.Detail:
                 res = self.concatFrame(frame,
@@ -39,29 +49,24 @@ class MaskedVideoGenerator:
         return res
 
 
-    def main(self):
-        vid_dir = 'vid/'
+    def selectSpecularArea(self, inputVideoName):
 
-        vid_name = 'video_' + str(15)
-        vid_format = '.mp4'
-
-        vid_name = 'Cabinet2_F'
-        vid_name = 'Cabinet2_F_Sq'
-        vid_name = 'Cabinet2_F_Sp'
-        vid_name = 'Cabinet3_F_Sp'
-        vid_format = '.avi'
-
-        #slvr = Solver(0.03, 10, 0.7, 0.7, 30, 20)
-        #slvr = Solver(0.03, 10, 0.2, 0.7, 0, 25)
-        kwargs = {'SIFT_peak': 0.09,
-                  'SIFT_edge': 8,
-                  'SIFT_feature_elimination': 20,
-                  'Samson_err': 0.02,
-                  'Ratio': 0.7,
+        kwargs = {'SIFT_peak': 0.03,
+                  'SIFT_edge': 12,
+                  'SIFT_feature_elimination': 15,
+                  'Samson_err': 2.5,
+                  'Trees': 5,
+                  'P_size': 20,
                   }
-        slvr = Solver(**kwargs)
+        slvr = MaskExtractor(**kwargs)
+        slvr.F_intens_on = True
+        slvr.F_max_only = True
+        slvr.F_andMethod = slvr.AndMethod.MIN
 
-        cap = cv.VideoCapture(vid_dir + vid_name + vid_format)
+        self.MASK_ONLY = False
+        self.method = self.WorkMethod.Detail
+
+        cap = cv.VideoCapture(inputVideoName)
         fourcc = cv.VideoWriter_fourcc(*'XVID')
         fps = cap.get(cv.CAP_PROP_FPS)
         frame_w = cap.get(cv.CAP_PROP_FRAME_WIDTH)
@@ -71,8 +76,12 @@ class MaskedVideoGenerator:
             frame_h *= 2
 
         new_name = vid_dir + 'masked/' + vid_name + '_masked_' + str(self.frame_gap) + '__' + \
-                   str(slvr.SIFT_peak_threshold) + '_' + str(slvr.SIFT_edge_threshold) + '_' + \
-                   str(slvr.samson_err) + '_' + str(slvr.ratio_test) + '__' + str(slvr.Gaussian_deviation) + '_' + str(slvr.point_size) + '.avi'
+                    str(slvr.SIFT_peak_threshold) + '_' + str(slvr.SIFT_edge_threshold) + '_' + \
+                    str(slvr.SIFT_feature_elimination_threshold) + '_' + str(slvr.samson_err) + '_' + str(slvr.trees) + '_' + \
+                    str(slvr.AD_MULT) + '_' + str(slvr.point_size) + '_' + str(slvr.Specular_thr) + \
+                    '__' +  \
+                    '.avi'
+        new_name = 'Result.avi'
         # out = cv.VideoWriter(new_name, fourcc, fps, (frame_w, frame_h))
         out = cv.VideoWriter(new_name, fourcc, fps, (int(frame_w), int(frame_h)))
         frame = prev_frame = None
@@ -116,5 +125,21 @@ class MaskedVideoGenerator:
         cap.release()
 
 if __name__ == '__main__':
-    gen = MaskedVideoGenerator()
-    gen.main()
+    gen = VideoHandler()
+
+    vid_dir = 'vid/'
+
+    vid_name = 'video_' + str(10)
+    vid_format = '.mp4'
+
+    vid_name = 'Cabinet2_Full'
+    vid_name = 'Cabinet2_F_Sp'
+    vid_name = 'Cabinet3_F_Sp'
+    vid_name = 'Cabinet3_AF1_F'
+    vid_name = 'Cabinet2_F_Sq'
+    vid_name = 'Cabinet2_Sq_Short_2_F'
+    vid_name = 'Cabinet2_Sq_Short_F'
+    vid_format = '.avi'
+
+    vidInput = vid_dir + vid_name + vid_format
+    gen.selectSpecularArea(vidInput)

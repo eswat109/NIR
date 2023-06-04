@@ -1,5 +1,6 @@
 # This is a sample Python script.
 import cv2 as cv
+import numpy as np
 from matplotlib import pyplot as plt
 
 
@@ -9,7 +10,7 @@ def loading_displaying_saving():
     cv.waitKey(0)
     #cv2.imwrite('graygirl.jpg', img)
 
-if __name__ == '__main__':
+def temp():
     #loading_displaying_saving()
     img_name1 = '20131114_155630.jpg'
     img_name2 = '20131114_155632.jpg'
@@ -31,3 +32,23 @@ if __name__ == '__main__':
     plt.subplot(122), plt.imshow(img3)
     plt.show()
 
+def drawCircleExp():
+    # create black background
+    background = np.zeros((450, 450, 3), np.uint8)
+
+    # initialize the mask of same shape but single channel
+    mask = np.zeros((450, 450), np.uint8)
+
+    # draw a circle onto the mask and apply Gaussian blur
+    mask = cv.circle(mask, (250, 250), 1, (255, 255, 255), -1, cv.LINE_AA)
+    mask1 = cv.GaussianBlur(mask, (61, 61), 0)
+    mask2 = cv.GaussianBlur(mask, (0, 0), 30)
+    mask3 = cv.GaussianBlur(mask, (61, 61), 30)
+    plt.subplot(221), plt.imshow(mask)
+    plt.subplot(222), plt.imshow(mask1)
+    plt.subplot(223), plt.imshow(mask2)
+    plt.subplot(224), plt.imshow(mask3)
+    plt.show()
+
+if __name__ == '__main__':
+    drawCircleExp()

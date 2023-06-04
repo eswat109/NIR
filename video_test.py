@@ -26,9 +26,16 @@ class MaskedVideoTester:
     vid_name_mask = 'Cabinet2_M_Sq'
     vid_name_orig = 'Cabinet3_F_Sp'
     vid_name_mask = 'Cabinet3_M_Sp'
+    vid_name_orig = 'Cabinet3_AF1_F'
+    vid_name_mask = 'Cabinet3_AF1_M'
+    vid_name_orig = 'Cabinet2_Sq_Short_2_F'
+    vid_name_mask = 'Cabinet2_Sq_Short_2_M'
+    vid_name_orig = 'Cabinet2_Sq_Short_F'
+    vid_name_mask = 'Cabinet2_Sq_Short_M'
     vid_format = '.avi'
 
-    def main(self, slvr):
+    def main(self, slvr, frameGap):
+        self.frame_gap = frameGap
         cap_o = cv.VideoCapture(self.vid_dir + self.vid_name_orig + self.vid_format)
         cap_m = cv.VideoCapture(self.vid_dir + self.vid_name_mask + self.vid_format)
         frame = prev_frame = None
@@ -86,7 +93,8 @@ class ParameterRange:
         self.step_ = step_
 
 def printTitle(worksheet):
-    var = ['SIFT_peak', 'SIFT_edge', 'SIFT_feature', 'Sampson_err', 'Ratio', 'Avg Precision', 'Avg Recall',
+    var = ['SIFT_peak', 'SIFT_edge', 'SIFT_feature', 'Sampson_err', 'Ratio',
+           'Frame gap', 'Avg Precision', 'Avg Recall',
            'M Precision', 'M Recall']
     for i, v in enumerate(var):
         worksheet.write(0, i, v)
@@ -119,36 +127,41 @@ if __name__ == '__main__':
     worksheet = workbook.add_worksheet()
     printTitle(worksheet)
 
-    for Sp in [0.03, 0.06, 0.09]:
-        for Se in [8, 10]:
-            for Sf in [15, 17, 20]:
-                for Serr in [0.02, 0.1, 0.5]:
-                    for Rt in [0.7, 0.8]:
-                        P_t, R_t = ([], [])
-                        kwargs = {'SIFT_peak': Sp,
-                                  'SIFT_edge': Se,
-                                  'SIFT_feature_elimination': Sf,
-                                  'Samson_err': Serr,
-                                  'Ratio': Rt,
-                                  'Avg_Precision': 0,
-                                  'Avg_Recall': 0,
-                                  'M_Precision': 0,
-                                  'M_Recall': 0,
-                                  }
-                        try:
-                            slvr = Solver(**kwargs)
-                            P_t, R_t = gen.main(slvr)
-                        except:
-                            pass
-                        if len(P_t) * len(R_t) == 0:
-                            print(Sp, Se, Sf, Serr, Rt, 'ERROR')
-                        else:
-                            kwargs['Avg_Precision'] = sum(P_t) / len(P_t)
-                            kwargs['Avg_Recall'] = sum(R_t) / len(R_t)
-                            kwargs['M_Precision'] = my_median(P_t)
-                            kwargs['M_Recall'] = my_median(R_t)
-                            print(Sp, Se, Sf, Serr, Rt, 'DONE')
-                        results.append(kwargs)
+    for Fg in [0]:
+        for Sp in [0.03]:
+            for Se in [12]:
+                for Sf in [15]:
+                    for Serr in [1.5, 2.5, 3.5]:
+                        for Rt in [0.7]:
+                            P_t, R_t = ([], [])
+                            kwargs = {'SIFT_peak': Sp,
+                                      'SIFT_edge': Se,
+                                      'SIFT_feature_elimination': Sf,
+                                      'Samson_err': Serr,
+                                      'Ratio': Rt,
+                                      'Frame_gap': Fg,
+                                      'Avg_Precision': 0,
+                                      'Avg_Recall': 0,
+                                      'M_Precision': 0,
+                                      'M_Recall': 0,
+                                      'P_size': 15,
+                                      }
+                            try:
+                                slvr = MaskExtractor(**kwargs)
+                                slvr.F_is_thrs_on = True
+                                slvr.F_max_only = True
+                                P_t, R_t = gen.main(slvr, Fg)
+                            except:
+                                pass
+                            if len(P_t) * len(R_t) == 0:
+                                print(Sp, Se, Sf, Serr, Rt, 'ERROR')
+                            else:
+                                kwargs['Avg_Precision'] = sum(P_t) / len(P_t)
+                                kwargs['Avg_Recall'] = sum(R_t) / len(R_t)
+                                kwargs['M_Precision'] = my_median(P_t)
+                                kwargs['M_Recall'] = my_median(R_t)
+                                print(Sp, Se, Sf, Serr, Rt, 'DONE')
+                            results.append(kwargs)
 
     for i, r in enumerate(results, start=1):
         printToExcel(worksheet, i, r)
