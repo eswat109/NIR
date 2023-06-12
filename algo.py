@@ -214,9 +214,27 @@ class MaskExtractor:
         white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
         r, g, b = cv.split(white_mask)
         z = np.zeros(g.shape, np.uint8)
-        color_mask = cv.merge([r, z, b])
+        color_mask = cv.merge([r, z, z])
         res = cv.addWeighted(img, 1, color_mask, 0.7, 0.0)
         return res
+
+    def paintMaskRed(self, mask):
+        white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+        r, g, b = cv.split(white_mask)
+        z = np.zeros(g.shape, np.uint8)
+        return cv.merge([r, z, z])
+
+    def paintMaskGreen(self, mask):
+        white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+        r, g, b = cv.split(white_mask)
+        z = np.zeros(g.shape, np.uint8)
+        return cv.merge([z, g, z])
+
+    def paintMaskBlue(self, mask):
+        white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+        r, g, b = cv.split(white_mask)
+        z = np.zeros(g.shape, np.uint8)
+        return cv.merge([z, z, b])
 
     def getMaskedImage(self, img1, img2):
         SPEC_mask, ED_mask, AD_mask = self.getMasksFromFrames(img1, img2)
@@ -264,11 +282,6 @@ if __name__ == '__main__':
     img_path = 'img/Hallway/'
     img_name1 = '20131114_154749.jpg'
     img_name2 = '20131114_154753.jpg'
-    img_path = 'img/Cabinet/'
-    img_name1 = 'Cabinet2_Full_1.jpg'
-    img_name2 = 'Cabinet2_Full_2.jpg'
-    img_name1 = 'Cabinet3_F_Sp_1.jpg'
-    img_name2 = 'Cabinet3_F_Sp_2.jpg'
     img_path = 'img/Office/'
     img_name1 = '20131112_152921.jpg'
     img_name2 = '20131112_152924.jpg'
@@ -280,21 +293,37 @@ if __name__ == '__main__':
     img_name2 = 'video_17.mp4_snapshot_00.03_[2023.05.09_15.05.32].jpg'
     img_name1 = 'video_17.mp4_snapshot_00.04_[2023.05.09_15.08.32].jpg'
     img_name2 = 'video_17.mp4_snapshot_00.04_[2023.05.09_15.08.26].jpg'
+    img_path = 'img/Cabinet/'
+    img_name1 = 'Cabinet2_Full_1.jpg'
+    img_name2 = 'Cabinet2_Full_2.jpg'
+    img_name1 = 'Cabinet3_F_Sp_1.jpg'
+    img_name2 = 'Cabinet3_F_Sp_2.jpg'
+
+    img_path = 'img/Sq_4/'
+    img_name1 = 'Cabinet2_Sq_Short_2_F_1.jpg'
+    img_name2 = 'Cabinet2_Sq_Short_2_F_2.jpg'
     '''
     '''
-    kwargs = {'SIFT_peak': 0.09,
+    kwargs = {'SIFT_peak': 0.03,
               'SIFT_edge': 7,
               'SIFT_feature_elimination': 15,
-              'Samson_err': 0.8,
+              'Samson_err': 2.5,
               'Ratio': 0.7,
-              'point_size': 15
+              'P_size': 20
               }
     slvr = MaskExtractor(**kwargs)
+    slvr.F_intens_on = True
+    slvr.F_max_only = True
+    slvr.F_andMethod = slvr.AndMethod.MIN
 
     img1 = cv.imread(img_path + img_name1, cv.IMREAD_GRAYSCALE)
     img2 = cv.imread(img_path + img_name2, cv.IMREAD_GRAYSCALE)
     img1_2 = cv.imread(img_path + img_name1, cv.IMREAD_COLOR)
     img2_2 = cv.imread(img_path + img_name2, cv.IMREAD_COLOR)
+    #img2_2 = cv.cvtColor(img2_2, cv.COLOR_BGR2RGB)
+
+    img_name_true = 'Cabinet2_Sq_Short_2_M.jpg'
+    img_true = cv.imread(img_path + img_name_true, cv.IMREAD_GRAYSCALE)
 
     SPEC_mask, ED_mask, AD_mask = slvr.getMasksFromFrames(img1, img2)
 
@@ -308,17 +337,23 @@ if __name__ == '__main__':
     cv.imshow('res', res)
     cv.waitKey(0)
     '''
+    true = cv.bitwise_and(img_true, cv.bitwise_xor(img_true, SPEC_mask))
+    guess = cv.bitwise_and(SPEC_mask, cv.bitwise_xor(img_true, SPEC_mask))
+    intsec = cv.bitwise_and(SPEC_mask, img_true)
+    res = cv.addWeighted(img2_2, 1, slvr.paintMaskGreen(true), 1, 0.0)
+    res = cv.addWeighted(res, 1, slvr.paintMaskRed(intsec), 1, 0.0)
+    res = cv.addWeighted(res, 1, slvr.paintMaskBlue(guess), 1, 0.0)
+    cv.imshow('res', res)
+    cv.waitKey(0)
 
     plt.subplot(221), plt.imshow(img2_2)
     plt.subplot(222), plt.imshow(SPEC_mask)
-    plt.subplot(222), plt.imshow(slvr.combineFrameAndMask(img2_2, SPEC_mask))
-    #plt.subplot(142), plt.imshow(slvr.combineFrameAndMask(img2_2, ED_mask))
-    #plt.subplot(143), plt.imshow(slvr.combineFrameAndMask(img2_2, AD_mask))
-    plt.subplot(223), plt.imshow(ED_mask)
-    plt.subplot(224), plt.imshow(AD_mask)
+    plt.subplot(222), plt.imshow(res)
+    plt.subplot(223), plt.imshow(slvr.paintMaskRed(intsec))
+    plt.subplot(224), plt.imshow(slvr.paintMaskGreen(true))
     '''
-
-    
+    '''
+    '''    
     intsec = cv.bitwise_and(SPEC_mask, img3)
     plt.subplot(241), plt.imshow(ED_mask)
     plt.subplot(242), plt.imshow(AD_mask)
@@ -328,9 +363,5 @@ if __name__ == '__main__':
     plt.subplot(246), plt.imshow(SPEC_mask)
     plt.subplot(247), plt.imshow(img3)
     plt.subplot(248), plt.imshow(intsec)
-    I = slvr.getMaskArea(intsec)
-    D = slvr.getMaskArea(SPEC_mask)
-    G = slvr.getMaskArea(img3)
-    print (I, D, G)
     '''
     plt.show()

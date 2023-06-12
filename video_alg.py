@@ -14,13 +14,45 @@ class VideoHandler:
     frame_gap = 0
     method = WorkMethod.Default
 
+    kwargs = {'SIFT_peak': 0.03,
+              'SIFT_edge': 7,
+              'SIFT_feature_elimination': 15,
+              'Samson_err': 2.5,
+              'Trees': 5,
+              'P_size': 20,
+              }
+    S_err_2 = 2.5
+
     def concatFrame(self, f, SPEC, ED, AD):
         img_1 = cv.hconcat([f, SPEC])
         img_2 = cv.hconcat([ED, AD])
         res = cv.vconcat([img_1, img_2])
         return res
 
-    def getFrameToWrite(self, slvr, frame, mask, ED = None, AD = None):
+    def culculation(self, frame1, frame2):
+        kwargs = self.kwargs
+        slvr = MaskExtractor(**kwargs)
+        slvr.F_intens_on = True
+        slvr.F_max_only = True
+        slvr.F_andMethod = slvr.AndMethod.MIN
+
+        kwargs['Samson_err'] = self.S_err_2
+        slvr_2 = MaskExtractor(**kwargs)
+        slvr_2.F_intens_on = True
+        slvr_2.F_max_only = True
+        slvr_2.F_andMethod = slvr.AndMethod.MIN
+
+        mask_SPEC, mask_ED, mask_AD = slvr.getMasksFromFrames(frame1, frame2)
+        return mask_SPEC, mask_ED, mask_AD
+
+        mask_SPEC_2, mask_ED_2, mask_AD_2 = slvr_2.getMasksFromFrames(frame1, frame2)
+        mask_SPEC_R = slvr.combineMasks(mask_ED, mask_AD_2)
+
+        return mask_SPEC_R, mask_ED, mask_AD_2
+
+
+    def getFrameToWrite(self, frame, mask, ED, AD):
+        slvr = MaskExtractor()
         res = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
         if not self.MASK_ONLY:
             if self.method == self.WorkMethod.Detail:
@@ -51,20 +83,8 @@ class VideoHandler:
 
     def selectSpecularArea(self, inputVideoName):
 
-        kwargs = {'SIFT_peak': 0.03,
-                  'SIFT_edge': 12,
-                  'SIFT_feature_elimination': 15,
-                  'Samson_err': 2.5,
-                  'Trees': 5,
-                  'P_size': 20,
-                  }
-        slvr = MaskExtractor(**kwargs)
-        slvr.F_intens_on = True
-        slvr.F_max_only = True
-        slvr.F_andMethod = slvr.AndMethod.MIN
-
         self.MASK_ONLY = False
-        self.method = self.WorkMethod.Detail
+        self.method = self.WorkMethod.Default
 
         cap = cv.VideoCapture(inputVideoName)
         fourcc = cv.VideoWriter_fourcc(*'XVID')
@@ -74,15 +94,16 @@ class VideoHandler:
         if self.method == self.WorkMethod.Detail:
             frame_w *= 2
             frame_h *= 2
-
         new_name = vid_dir + 'masked/' + vid_name + '_masked_' + str(self.frame_gap) + '__' + \
-                    str(slvr.SIFT_peak_threshold) + '_' + str(slvr.SIFT_edge_threshold) + '_' + \
-                    str(slvr.SIFT_feature_elimination_threshold) + '_' + str(slvr.samson_err) + '_' + str(slvr.trees) + '_' + \
-                    str(slvr.AD_MULT) + '_' + str(slvr.point_size) + '_' + str(slvr.Specular_thr) + \
-                    '__' +  \
+                    str(self.kwargs['SIFT_peak']) + '_' + str(self.kwargs['SIFT_edge']) + '_' + \
+                    str(self.kwargs['SIFT_feature_elimination']) + '_' + str(self.kwargs['Samson_err']) + '_' + str(self.S_err_2) + '_' + \
                     '.avi'
-        new_name = 'Result.avi'
-        # out = cv.VideoWriter(new_name, fourcc, fps, (frame_w, frame_h))
+
+        # str(slvr.AD_MULT) + '_' + str(slvr.point_size) + '_' + str(slvr.Specular_thr) + \
+        # '__' +  \
+
+        #new_name = 'Result.avi'
+
         out = cv.VideoWriter(new_name, fourcc, fps, (int(frame_w), int(frame_h)))
         frame = prev_frame = None
         mask_SPEC, mask_ED, mask_AD = None, None, None
@@ -102,7 +123,7 @@ class VideoHandler:
                 if mask_SPEC is None:
                     out.write(frame)
                 else:
-                    masked_frame = self.getFrameToWrite(slvr, frame, mask_SPEC, mask_ED, mask_AD)
+                    masked_frame = self.getFrameToWrite(frame, mask_SPEC, mask_ED, mask_AD)
                     out.write(masked_frame)
                 continue
             frame_i = -1
@@ -111,14 +132,14 @@ class VideoHandler:
             gray_prev_frame = cv.cvtColor(prev_frame, cv.COLOR_BGR2GRAY)
 
             try:
-                mask_SPEC, mask_ED, mask_AD = slvr.getMasksFromFrames(gray_prev_frame, gray_frame)
+                mask_SPEC, mask_ED, mask_AD = self.culculation(gray_prev_frame, gray_frame)
             except:
                 mask_SPEC, mask_ED, mask_AD = None, None, None
                 out.write(frame)
                 prev_frame = frame
                 continue
 
-            masked_frame = self.getFrameToWrite(slvr, frame, mask_SPEC, mask_ED, mask_AD)
+            masked_frame = self.getFrameToWrite(frame, mask_SPEC, mask_ED, mask_AD)
             out.write(masked_frame)
 
             prev_frame = frame.copy()
@@ -132,13 +153,13 @@ if __name__ == '__main__':
     vid_name = 'video_' + str(10)
     vid_format = '.mp4'
 
-    vid_name = 'Cabinet2_Full'
     vid_name = 'Cabinet2_F_Sp'
     vid_name = 'Cabinet3_F_Sp'
     vid_name = 'Cabinet3_AF1_F'
     vid_name = 'Cabinet2_F_Sq'
-    vid_name = 'Cabinet2_Sq_Short_2_F'
     vid_name = 'Cabinet2_Sq_Short_F'
+    vid_name = 'Cabinet2_Full'
+    vid_name = 'Cabinet2_Sq_Short_2_F'
     vid_format = '.avi'
 
     vidInput = vid_dir + vid_name + vid_format
