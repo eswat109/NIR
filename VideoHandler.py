@@ -2,7 +2,7 @@ import numpy as np
 import cv2 as cv
 from enum import Enum
 
-from algo import *
+from MaskExtractor import *
 
 class VideoHandler:
 

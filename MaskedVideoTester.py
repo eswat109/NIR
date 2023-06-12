@@ -3,7 +3,7 @@ import cv2 as cv
 import pandas as pd
 import xlsxwriter
 
-from algo import *
+from MaskExtractor import *
 
 
 def my_median(sample):
