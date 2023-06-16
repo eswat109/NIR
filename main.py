@@ -8,5 +8,5 @@ from VideoHandler import *
 
 if __name__ == '__main__':
     VH = VideoHandler()
-    vid_name = 'InputVideo.avi'
+    vid_name = 'InputVideo.mp4'
     VH.selectSpecularArea(vid_name)
