@@ -214,10 +214,11 @@ class MaskExtractor:
         white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
         r, g, b = cv.split(white_mask)
         z = np.zeros(g.shape, np.uint8)
-        color_mask = cv.merge([r, z, z])
+        color_mask = cv.merge([r, z, b])
         res = cv.addWeighted(img, 1, color_mask, 0.7, 0.0)
         return res
 
+    '''
     def paintMaskRed(self, mask):
         white_mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
         r, g, b = cv.split(white_mask)
@@ -235,7 +236,7 @@ class MaskExtractor:
         r, g, b = cv.split(white_mask)
         z = np.zeros(g.shape, np.uint8)
         return cv.merge([z, z, b])
-
+    '''
     def getMaskedImage(self, img1, img2):
         SPEC_mask, ED_mask, AD_mask = self.getMasksFromFrames(img1, img2)
         img_mask = self.combineFrameAndMask(img2_2, SPEC_mask)

@@ -45,10 +45,10 @@ class VideoHandler:
         mask_SPEC, mask_ED, mask_AD = slvr.getMasksFromFrames(frame1, frame2)
         return mask_SPEC, mask_ED, mask_AD
 
-        mask_SPEC_2, mask_ED_2, mask_AD_2 = slvr_2.getMasksFromFrames(frame1, frame2)
+        '''mask_SPEC_2, mask_ED_2, mask_AD_2 = slvr_2.getMasksFromFrames(frame1, frame2)
         mask_SPEC_R = slvr.combineMasks(mask_ED, mask_AD_2)
 
-        return mask_SPEC_R, mask_ED, mask_AD_2
+        return mask_SPEC_R, mask_ED, mask_AD_2'''
 
 
     def getFrameToWrite(self, frame, mask, ED, AD):
@@ -94,15 +94,17 @@ class VideoHandler:
         if self.method == self.WorkMethod.Detail:
             frame_w *= 2
             frame_h *= 2
+        '''
         new_name = vid_dir + 'masked/' + vid_name + '_masked_' + str(self.frame_gap) + '__' + \
                     str(self.kwargs['SIFT_peak']) + '_' + str(self.kwargs['SIFT_edge']) + '_' + \
                     str(self.kwargs['SIFT_feature_elimination']) + '_' + str(self.kwargs['Samson_err']) + '_' + str(self.S_err_2) + '_' + \
                     '.avi'
 
+        '''
         # str(slvr.AD_MULT) + '_' + str(slvr.point_size) + '_' + str(slvr.Specular_thr) + \
         # '__' +  \
 
-        #new_name = 'Result.avi'
+        new_name = 'Result.avi'
 
         out = cv.VideoWriter(new_name, fourcc, fps, (int(frame_w), int(frame_h)))
         frame = prev_frame = None
